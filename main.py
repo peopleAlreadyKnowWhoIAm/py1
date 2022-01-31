@@ -1,7 +1,135 @@
-import datetime
+from ast import Dict
+from datetime import date
+from typing import List, Mapping, Tuple, TypedDict, Union
 from unicodedata import name
-# method
-# attributes
+
+class Volume:
+    width: int
+    height: int
+    depth: int
+
+    def __init__(self, width: int, height: int, depth: int) -> None:
+        self.height = height
+        self.width = width
+        self.depth = depth
+
+    def calculate_volume(self) -> int:
+        return self.height * self.width * self.depth
+
+
+class FishInfo:
+    name: str
+    origin: str
+    catch_date: date
+    due_date: date
+
+    def __init__(self, name:str, origin: str, catch_date: date, due_date:date) -> None:
+        self.name = name
+        self.origin = origin
+        self.catch_date = catch_date
+        self.due_date = due_date
+
+class Fish(FishInfo):
+    age_in_month: int
+    weight: float
+
+    def __init__(
+        self, name:str, origin: str, catch_date: date, due_date:date, 
+        age_in_month: int, weight: float
+    ) -> None:
+        super().__init__(name, origin, catch_date, due_date)
+        self.age_in_month = age_in_month
+        self.weight = weight
+
+class FishBox:
+    def __init__(self, fish_type: FishInfo, package_date: date, volume: Volume) -> None:
+        self.fish_info = fish_type
+        self.package_date = package_date
+        self.volume = volume
+
+    fish_info: FishInfo
+    package_date: date
+    volume: Volume
+
+class FishShop:
+    frozen_fish: dict
+    fresh_fish: dict
+
+    def add_fish(self, fish: Fish, weight: float, price_per_kilo: float) -> None:
+        elem_info = (fish, weight, price_per_kilo)
+        if self.fresh_fish.get(elem_info[0].name) == None:
+            self.fresh_fish[elem_info[0].name] = [elem_info]
+        else:
+            self.fresh_fish[elem_info[0].name].append(elem_info)
+
+    def add_fish(self, fish: FishBox, weight: float, price_per_kilo: float) -> None:
+        elem_info = (fish, weight, price_per_kilo)
+        if self.frozen_fish.get(elem_info[0].fish_info.name) == None:
+            self.frozen_fish[elem_info[0].fish_info.name] = [elem_info]
+        else:
+            self.frozen_fish[elem_info[0].fish_info.name].append(elem_info)
+    
+    def sell_fresh_fish(self, fish_name: str, weight: float) -> Tuple[FishInfo, float, float]:
+        available_fish = sorted(self.fresh_fish.get(fish_name), key = lambda fish: fish[1])
+        for fish_and_weight in available_fish:
+            if fish_and_weight[1] >= weight:
+                return (
+                    FishInfo(fish_and_weight[0]), #Fish 
+                    fish_and_weight[1], #weight
+                    fish_and_weight[1] * fish_and_weight[2] #sum
+                    )
+        return None
+
+    def sell_frozen_fish(self, fish_name: str, weight: float) -> Tuple[FishInfo, float, float]:
+        available_fish = self.frozen_fish.get(fish_name)
+        out = (None, 0.0, 0.0)
+        for fish_and_weight in available_fish:
+            if weight <= fish_and_weight[1]:
+                fish_and_weight[1] -= weight
+                if out[0] == None:
+                    out[0] = fish_and_weight[0].fish_info
+                out[1] += weight
+                out[2] += weight * fish_and_weight[2]
+                return out
+            else:
+                weight -= fish_and_weight[1]
+                if out[0] == None:
+                    out[0] = fish_and_weight[0].fish_info
+                out[1] += fish_and_weight[1]
+                out[2] += fish_and_weight[1] * fish_and_weight[2]
+        if out[0] == None: 
+            return None 
+        return out
+    
+    def get_fish_sorted_by_price(self) -> List[Tuple[FishInfo, bool, float, float]]:
+        out = []
+        for fish_elem in self.fresh_fish: 
+            out.append((FishInfo(fish_elem[0]), True, fish_elem[1], fish_elem[2]))
+        for fish_elem in self.frozen_fish: 
+            out.append((FishInfo(fish_elem[0]), False, fish_elem[1], fish_elem[2]))
+        return list(sorted(out, key = lambda fish: fish[2]))
+
+    def get_fresh_fish_sorted_by_price(self) -> List[Tuple[FishInfo, float, float]]:
+        return list(sorted(list(self.fresh_fish), key = lambda fish: fish[2]))
+
+    def get_frozen_fish_sorted_by_price(self) -> List[Tuple[FishInfo, float, float]]:
+        return list(sorted(list(self.frozen_fish), key = lambda fish: fish[2]))
+
+
+test = Fish("ryba", "america", date.fromisoformat("2012-12-02"), date.fromisoformat("2015-02-02"), 35, 34)
+
+print(test.name)
+#Below the code block which will be deleted
+"""
+class Place:
+    pass
+
+class Employee:
+    pass
+
+class Goods:
+    pass
+
 class Student:
     group = "IP-11"
     def __init__(self, first_name: str = "", last_name: str = "") -> None:
@@ -42,40 +170,26 @@ class FishShop:
     def add_fish(self, fish: Fish) -> None:
         self.available_fish.append(fish)
 
-    def get_fish_names_sorted_by_price(self) -> [Fish]:
+    def get_fish_names_sorted_by_price(self) -> List[Fish]:
         return list(sorted(
             self.available_fish,
             key=lambda fish: fish.price_in_uah_per_kilo
             ))
 
-    def sell_fish(self, fish_name: str, weight: float) -> float:
-        price:float = 0.0
-        for fish in self.available_fish:
-            if fish.name == fish_name:
-                if fish.weight <= weight:
-                    weight = weight - fish.weight
-                    price += fish.weight* fish.price_in_uah_per_kilo
-                    self.available_fish.remove(fish)
-                else:
-                    fish.weight = fish.weight - weight
-                    price += weight * fish.price_in_uah_per_kilo
-                    break
-        return price
-
-    def cast_out_old_fish(self, is_that_after_days: int = 30) -> [Fish]:
+    def cast_out_old_fish(self, is_that_after_days: int = 30) -> List[Fish]:
         out = list(self.available_fish)
         min_good_date = datetime.date.today() - datetime.timedelta(days = is_that_after_days)
         self.available_fish = list(filter(lambda fish: fish.catch_date >= min_good_date, self.available_fish))
-        return out.remove([fish for fish in self.available_fish])
+        return list(filter(lambda fish: fish not in self.available_fish, out ))
 
 class Seller:
-    def __init__(self,full_name:str = "oleh petrovych", id: int, money:float, place_of_work:Place, place_of_residence: Place):
+    def __init__(self,full_name:str, id:int, money:float, place_of_work:Place, place_of_residence: Place):
         pass
     def pay_taxes(self, tax_premium_percentage: int = 30) -> None:
         pass
-    def available_goods(self) -> []:
+    def available_goods(self) -> List[Goods]:
         pass
-    def order_goods(self, goods:[Goods]) -> None:
+    def order_goods(self, goods:List[Goods]) -> None:
         pass
     def pay_employee(self, employee: str, money:int) -> None:
         pass
@@ -85,12 +199,12 @@ class Seller:
         pass
     def make_revision(self) -> None:
         pass
-    def cast_out_old_goods(self) -> [Goods]:
+    def cast_out_old_goods(self) -> List[Goods]:
         pass
 class Buyer:
-    def __init__(self, full_name:str = "oleh petrovych", id: int, money:float, place_of_residence: Place, preferences: [str]) ->None:
+    def __init__(self, full_name:str, id: int, money:float, place_of_residence: Place, preferences: List[str]) ->None:
         pass
-    def buy(goods:[Goods]) -> None:
+    def buy(goods:List[Goods]) -> None:
         pass
     
 
@@ -120,3 +234,4 @@ oleh = Student("oleh", "petrovych")
 oleh.print_name()
 taras = Student()
 taras.print_name()
+"""
